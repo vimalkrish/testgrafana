@@ -1,0 +1,66 @@
+version: '2'
+services:
+
+  consul:
+    image: "consul"
+    hostname: "consul"
+    command: agent -server -bind 0.0.0.0 -client 0.0.0.0 -bootstrap-expect=1 
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:53/udp"
+    volumes:
+      - ./consul/config:/consul/config
+    
+  myvault:
+    image: vault
+    container_name: myvault
+    ports:
+      - "127.0.0.1:8200:8200"
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+    volumes:
+      - ./vault/file:/vault/file:rw
+      - ./vault/config:/vault/config:rw
+    cap_add:
+      - IPC_LOCK
+    entrypoint: vault server -config=/vault/config/vault.json
+
+  influxdb:
+        image: influxdb:1.6.0-alpine
+        volumes:
+            - ./influxdb/etc:/etc/influxdb
+            - influxdb-lib:/var/lib/influxdb
+        environment:
+            - INFLUXDB_ADMIN_USER=root
+            - INFLUXDB_ADMIN_PASSWORD=5up3rS3cr3t
+        ports:
+            - 8083:8083
+            - 8086:8086
+        privileged: true
+
+  grafana:
+        image: grafana/grafana:5.2.2
+        volumes:
+            - ./grafana/etc:/etc/grafana:ro
+            - grafana-lib:/var/lib/grafana
+            - grafana-log:/var/log/grafana
+        links:
+            - influxdb:influxdb
+        environment:
+            - GF_INSTALL_PLUGINS=grafana-clock-panel
+        ports:
+            - 3000:3000
+        depends_on:
+            - influxdb
+        privileged: true
+
+volumes:
+  influxdb-lib:
+    external: false
+
+  grafana-lib:
+    external: false
+
+  grafana-log:
+    external: false
